@@ -8,8 +8,8 @@
 const double TOLERANCE = 1e-9;
 
 /**
- * Encontra a coluna para entrar na base (coluna pivô).
- * Procura pelo valor mais positivo na linha da função objetivo (linha 0).
+ * encontra a coluna para entrar na base (coluna pivot).
+ * porocura pelo valor mais positivo na linha da função objetivo (linha 0).
  */
 int find_entering_col(double** tableau, int m_vars) {
     int entering_col = -1;
@@ -34,7 +34,7 @@ int find_leaving_row(double** tableau, int n_rows, int n_cols, int pivot_col) {
         double coeff = tableau[i][pivot_col];
         double rhs = tableau[i][rhs_col];
 
-        // Teste da razao so e valido para coeficientes > 0 !
+        // teste da razao so e valido para coeficientes > 0 !
         if (coeff > TOLERANCE) {
             double ratio = rhs / coeff;
             if (ratio < min_ratio - TOLERANCE) {
@@ -47,25 +47,27 @@ int find_leaving_row(double** tableau, int n_rows, int n_cols, int pivot_col) {
 }
 
 /**
- * Executa a operacao de pivotamento no tableau.
+ * executa a operacao de pivotamento no tableau.
  * mto chato slk
  */
 void pivot(double** tableau, int n_rows, int n_cols, int pivot_row, int pivot_col) {
     double pivot_val = tableau[pivot_row][pivot_col];
-    // 1. Normalizar a linha pivo
+    double inv_pivot = 1.0 / pivot_val; 
+    
     for (int j = 0; j < n_cols; ++j) {
-        tableau[pivot_row][j] /= pivot_val;
+        tableau[pivot_row][j] *= inv_pivot;
     }
-
+    
     for (int i = 0; i < n_rows; ++i) {
-        if (i != pivot_row) {
-            double factor = tableau[i][pivot_col];
-            if (std::abs(factor) < TOLERANCE) {
-                continue;
-            }
-            // L_i = L_i - fator * L_pivo
-            // igual gauss jordan
-            for (int j = 0; j < n_cols; ++j) {
+        if (i == pivot_row) continue;
+        
+        double factor = tableau[i][pivot_col];
+        if (std::abs(factor) < TOLERANCE) continue;
+        
+        tableau[i][pivot_col] = 0.0; 
+        
+        for (int j = 0; j < n_cols; ++j) {
+            if (j != pivot_col) { 
                 tableau[i][j] -= factor * tableau[pivot_row][j];
             }
         }
@@ -102,7 +104,7 @@ void debugPrintTableau(std::ofstream& outFile, const std::string& titulo,
 
 int main(int argc, char* argv[]) {
     if (argc != 3) {
-        std::cerr << "Uso: " << argv[0] << " <arquivo_entrada> <arquivo_saida>" << std::endl;
+        std::cerr << "uso: " << argv[0] << " <arquivo_entrada> <arquivo_saida>" << std::endl;
         return 1;
     }
 
@@ -233,7 +235,7 @@ int main(int argc, char* argv[]) {
     double fo_aux = aux_tableau[0][n_cols_aux - 1];
     
     if (fo_aux > TOLERANCE) {
-        // std::cout << "Resultado: Problema INVIAVEL (F.O. Fase I = " << fo_aux << ")" << std::endl;
+        // std::cout << "resultado:  INVIAVEL (F.O. Fase I = " << fo_aux << ")" << std::endl;
         outputFile << "inviavel" << std::endl; 
 
         delete[] c; delete[] b;
@@ -249,11 +251,11 @@ int main(int argc, char* argv[]) {
         }
         inputFile.close();
         outputFile.close();
-        // std::cout << "Processamento concluido." << std::endl;
+        // std::cout << "processamento concluido." << std::endl;
         return 0;
     }
 
-    // std::cout << "Fase I concluida: Solucao viavel encontrada." << std::endl;
+    // std::cout << "fase I concluida: solucao viavel encontrada." << std::endl;
 
     for (int i = 1; i <= n; ++i) {
         for (int j = 0; j < m; ++j) {
@@ -265,29 +267,39 @@ int main(int argc, char* argv[]) {
         tableau[0][j] = c[j]; // -c
     }
 
-    for (int i = 1; i <= n; ++i) { // Para cada linha
-        int basic_col = -1;
+    int* basis = new int[n]; 
+
+    for (int i = 1; i <= n; ++i) {
+        basis[i-1] = -1;
         for (int j = 0; j < m; ++j) {
-            if (std::abs(tableau[i][j] - 1.0) < TOLERANCE) {
+            if (std::abs(aux_tableau[i][j] - 1.0) < TOLERANCE) {
                 bool is_basic = true;
                 for (int k = 1; k <= n; ++k) {
-                    if (i != k && std::abs(tableau[k][j]) > TOLERANCE) {
+                    if (i != k && std::abs(aux_tableau[k][j]) > TOLERANCE) {
                         is_basic = false;
                         break;
                     }
                 }
                 if (is_basic) {
-                    basic_col = j;
+                    basis[i-1] = j;
                     break;
                 }
             }
         }
+    }
+
+    for (int j = 0; j < m; ++j) {
+        tableau[0][j] = c[j];
+    }
+
+    for (int i = 1; i <= n; ++i) {
+        int basic_col = basis[i-1];
         if (basic_col != -1) {
-            // L0 = L0 - (custo_da_var_basica) * Li
             double factor = tableau[0][basic_col];
-            if (std::abs(factor) < TOLERANCE) continue; 
-            for (int col = 0; col <= m; ++col) {
-                tableau[0][col] -= factor * tableau[i][col];
+            if (std::abs(factor) > TOLERANCE) {
+                for (int col = 0; col <= m; ++col) {
+                    tableau[0][col] -= factor * tableau[i][col];
+                }
             }
         }
     }
