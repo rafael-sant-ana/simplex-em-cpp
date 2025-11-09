@@ -167,18 +167,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    double** tableau = nullptr;
-    try {
-        tableau = new double*[n + 1];
-        for (int i = 0; i < n + 1; ++i) { tableau[i] = new double[m + 1](); }
-    } catch (const std::bad_alloc& e) {
-        std::cerr << "falha ao alocar tableau Fase II." << std::endl;
-        delete[] c; delete[] b;
-        for (int i = 0; i < n; ++i) { delete[] A[i]; }
-        delete[] A;
-        return 1;
-    }
-
     int n_rows_aux = n + 1;
     int n_cols_aux = m + n + 1;
     int m_aux = m + n; 
@@ -192,8 +180,6 @@ int main(int argc, char* argv[]) {
         delete[] c; delete[] b;
         for (int i = 0; i < n; ++i) { delete[] A[i]; }
         delete[] A;
-        for (int i = 0; i < n+1; ++i) { delete[] tableau[i]; }
-        delete[] tableau;
         return 1;
     }
 
@@ -241,10 +227,6 @@ int main(int argc, char* argv[]) {
         delete[] c; delete[] b;
         for (int i = 0; i < n; ++i) { delete[] A[i]; }
         delete[] A;
-        if (tableau) {
-            for (int i = 0; i < n + 1; ++i) { delete[] tableau[i]; }
-            delete[] tableau;
-        }
         if (aux_tableau) {
             for (int i = 0; i < n_rows_aux; ++i) { delete[] aux_tableau[i]; }
             delete[] aux_tableau;
@@ -257,14 +239,8 @@ int main(int argc, char* argv[]) {
 
     // std::cout << "fase I concluida: solucao viavel encontrada." << std::endl;
 
-    for (int i = 1; i <= n; ++i) {
-        for (int j = 0; j < m; ++j) {
-            tableau[i][j] = aux_tableau[i][j]; // A'
-        }
-        tableau[i][m] = aux_tableau[i][n_cols_aux - 1]; // b'
-    }
     for (int j = 0; j < m; ++j) {
-        tableau[0][j] = c[j]; // -c
+        aux_tableau[0][j] = c[j]; // -c
     }
 
     int* basis = new int[n]; 
@@ -289,16 +265,16 @@ int main(int argc, char* argv[]) {
     }
 
     for (int j = 0; j < m; ++j) {
-        tableau[0][j] = c[j];
+        aux_tableau[0][j] = c[j];
     }
 
     for (int i = 1; i <= n; ++i) {
         int basic_col = basis[i-1];
         if (basic_col != -1) {
-            double factor = tableau[0][basic_col];
+            double factor = aux_tableau[0][basic_col];
             if (std::abs(factor) > TOLERANCE) {
                 for (int col = 0; col <= m; ++col) {
-                    tableau[0][col] -= factor * tableau[i][col];
+                    aux_tableau[0][col] -= factor * aux_tableau[i][col];
                 }
             }
         }
@@ -311,21 +287,21 @@ int main(int argc, char* argv[]) {
     iter = 0; 
 
     while (true) {
-        int pivot_col = find_entering_col(tableau, m); 
+        int pivot_col = find_entering_col(aux_tableau, m); 
 
         if (pivot_col == -1) {
             // std::cout << "Fase II: Solucao otima encontrada." << std::endl;
             break; 
         }
 
-        int pivot_row = find_leaving_row(tableau, n + 1, m + 1, pivot_col);
+        int pivot_row = find_leaving_row(aux_tableau, n + 1, m + 1, pivot_col);
 
         if (pivot_row == -1) {
             is_unbounded = true;
             break; 
         }
         
-        pivot(tableau, n + 1, m + 1, pivot_row, pivot_col);
+        pivot(aux_tableau, n + 1, m + 1, pivot_row, pivot_col);
         
     }
     
@@ -338,10 +314,6 @@ int main(int argc, char* argv[]) {
         delete[] c; delete[] b;
         for (int i = 0; i < n; ++i) { delete[] A[i]; }
         delete[] A;
-        if (tableau) {
-            for (int i = 0; i < n + 1; ++i) { delete[] tableau[i]; }
-            delete[] tableau;
-        }
         if (aux_tableau) {
             for (int i = 0; i < n_rows_aux; ++i) { delete[] aux_tableau[i]; }
             delete[] aux_tableau;
@@ -353,7 +325,7 @@ int main(int argc, char* argv[]) {
     
     } else {
         // std::cout << "Resultado: Solucao OTIMA encontrada." << std::endl;
-        double optimal_value = -1 * tableau[0][m];
+        double optimal_value = -1 * aux_tableau[0][m];
         
         outputFile << "otima" << std::endl; 
         outputFile << std::fixed << std::setprecision(3) << optimal_value << std::endl; 
@@ -369,13 +341,6 @@ int main(int argc, char* argv[]) {
         delete[] A[i];
     }
     delete[] A;
-
-    if (tableau) {
-        for (int i = 0; i < n + 1; ++i) {
-            delete[] tableau[i];
-        }
-        delete[] tableau;
-    }
 
     if (aux_tableau) {
         for (int i = 0; i < n_rows_aux; ++i) {
