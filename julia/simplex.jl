@@ -4,6 +4,8 @@ using LinearAlgebra # I(m)
 #max c' x
 # s.t. Ax <= b, x >= 0
 
+const TOL = 1e-10
+
 struct ResultadoSimplex
   status::String
   value::Float64
@@ -12,59 +14,7 @@ end
 
 ResultadoSimplex(status::String) = ResultadoSimplex(status, 0.0, Float64[])
 
-function main()
-  if length(ARGS) < 2
-    println("uso: julia simplex.jl <entrada> <saida>")
-    exit(1)
-  end
-
-  input = ARGS[1]
-  output = ARGS[2]
-
-  n, m, A, b, c = read_problem(input)
-
-
-  try
-    tableau = generate_tableau(c, A, b)
-
-    x, optimal_value = simplex!(tableau)
-
-    result = ResultadoSimplex("optimal", optimal_value, x)
-
-    escrever_saida(output, result)
-  catch e
-    if occursin("unlimited", string(e))
-      output_solution(output, ResultadoSimplex("unlimited"))
-    else
-      output_solution(output, ResultadoSimplex("error"))
-    end
-  end
-end
-
-function simplex!(tableau)
-  m, n = size(tableau)
-
-  while true
-    # var q entra
-    pivot_col = choose_pivot_col(tableau)
-
-    if pivot_col == -1 # Solucao otima 
-      return get_optimal_solution(tableau)
-    end
-
-    # var que sai 
-    pivot_row = choose_pivot_row(tableau, pivot_col)
-
-    if pivot_row == -1
-      error("unlimited")
-    end
-
-    pivot!(tableau, pivot_row, pivot_col)
-  end
-end
-
-function get_optimal_solution(tableau)
-  m, n = size(tableau)
+function get_optimal_solution(tableau, n, m)
   optimal = tableau[end, end]
   
   x = zeros(n)
@@ -73,8 +23,8 @@ function get_optimal_solution(tableau)
     column = tableau[1:m, j]
 
     # so uma coluna com nao zeros
-    if sum(abs.(column) .> 1e-10) == 1 
-        idx = findfirst(x -> abs(x - 1.0) < 1e-10, column)
+    if sum(abs.(column) .> TOL) == 1 
+        idx = findfirst(x -> abs(x - 1.0) < TOL, column)
         if idx !== nothing
             x[j] = tableau[idx, end]  
         end
@@ -87,8 +37,8 @@ end
 function read_problem(file::String)
   input_data = readdlm(file)
 
-  n = Int(input_data[1, 1])
-  m = Int(input_data[1, 2])
+  m = Int(input_data[1, 1])
+  n = Int(input_data[1, 2])
 
   c = input_data[2, 1:n] # da linha 2, na coluna 1 ate n
   A = input_data[3:end, 1:n]
@@ -140,7 +90,7 @@ function choose_pivot_row(tableau, col)
   ratios = fill(Inf, m)
 
   for i in 1:m
-    if column[i] > 1e-10 # tolerancia. pra n comparar com == 0
+    if column[i] > TOL # tolerancia. pra n comparar com == 0
       ratios[i] = b[i] / column[i]
     end
   end
@@ -170,13 +120,62 @@ function pivot!(tableau, row_pivot, col_pivot)
 
   pivot = tableau[row_pivot, col_pivot]
   # fazer pivot virar 1
-  tableau[row_pivot, :] ./= pivot
+  tableau[row_pivot, :] /= pivot
 
   # zerar o resto das linhas naquela coluna
   for i in 1:m
     if i != row_pivot
       factor = tableau[i, col_pivot]
-      tableau[i, :] .-= factor * tableau[linha_pivot, :]
+      tableau[i, :] -= factor * tableau[row_pivot, :]
+    end
+  end
+end
+
+function simplex!(tableau, n, m)
+  while true
+    # var q entra
+    pivot_col = choose_pivot_col(tableau)
+
+    if pivot_col == -1 # Solucao otima 
+      return get_optimal_solution(tableau, n, m)
+    end
+
+    # var que sai 
+    pivot_row = choose_pivot_row(tableau, pivot_col)
+
+    if pivot_row == -1
+      error("unlimited")
+    end
+
+    pivot!(tableau, pivot_row, pivot_col)
+  end
+end
+
+function main()
+  if length(ARGS) < 2
+    println("uso: julia simplex.jl <entrada> <saida>")
+    exit(1)
+  end
+
+  input = ARGS[1]
+  output = ARGS[2]
+
+  n, m, A, b, c = read_problem(input)
+
+  try
+    tableau = generate_tableau(c, A, b)
+
+    x, optimal_value = simplex!(tableau, n, m)
+
+    result = ResultadoSimplex("optimal", optimal_value, x)
+
+    output_solution(output, result)
+  catch e
+    println(string(e))
+    if occursin("unlimited", string(e))
+      output_solution(output, ResultadoSimplex("unlimited"))
+    else
+      output_solution(output, ResultadoSimplex("error"))
     end
   end
 end
