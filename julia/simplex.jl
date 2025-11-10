@@ -5,6 +5,7 @@ using LinearAlgebra # I(m)
 # s.t. Ax <= b, x >= 0
 
 const TOL = 1e-10
+const MAX_ITER = 1000
 
 struct ResultadoSimplex
   status::String
@@ -110,7 +111,7 @@ function choose_pivot_col(tableau)
 
   min_val, col = findmin(last_row)
 
-  return min_val < 0 ? col : -1 # se retornou -1
+  return (min_val) < -TOL ? col : -1 # se retornou -1
                                   # eh porque todos sao > 0
                                   # logo, eh otimo
 end
@@ -132,6 +133,7 @@ function pivot!(tableau, row_pivot, col_pivot)
 end
 
 function simplex!(tableau, n, m)
+  iter = 0
   while true
     # var q entra
     pivot_col = choose_pivot_col(tableau)
@@ -147,7 +149,14 @@ function simplex!(tableau, n, m)
       error("unlimited")
     end
 
+    
     pivot!(tableau, pivot_row, pivot_col)
+
+    iter += 1
+
+    if iter > MAX_ITER
+      break
+    end
   end
 end
 
